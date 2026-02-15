@@ -2,9 +2,10 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import KFold, cross_val_score
 from config import train_path, cv_folds, random_state
-from pipeline import preprocessing, build_linear_pipeline, build_ridge_pipeline, build_gradientboost_pipeline, build_histgradientboost_pipeline, build_adaboost_pipeline, build_extratrees_pipeline, build_spline_ridge_pipeline, build_randomforest_pipeline, build_xgboost_pipeline
+from pipeline import preprocessing, build_linear_pipeline, build_ridge_pipeline, build_gradientboost_pipeline, build_histgradientboost_pipeline, build_adaboost_pipeline, build_extratrees_pipeline, build_spline_ridge_pipeline, build_randomforest_pipeline, build_xgboost_pipeline, build_stacking_pipeline
 from sklearn.model_selection import GridSearchCV
-
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.base import clone
 
 def load_data():
     train_data = pd.read_csv(train_path)
@@ -54,6 +55,8 @@ def main():
 
     best_pipe = grid.best_estimator_
     evaluate(best_pipe, X_train, Y_train, "GBR tuned (5-fold)", cv)
+
+
 
     hgb_pipe = build_histgradientboost_pipeline(preprocessor_unscaled)
     evaluate(hgb_pipe, X_train, Y_train, "HistGB (default)", cv)
@@ -108,6 +111,30 @@ def main():
     xgb_pipe = build_xgboost_pipeline(preprocessor_unscaled, n_estimators=600, learning_rate=0.05, max_depth = 4, subsample=0.8, colsample_bytree=0.8)
     evaluate(xgb_pipe, X_train, Y_train, "XGBoost (baseline)", cv)
 
+    gbr_base = build_gradientboost_pipeline(
+        preprocessor_unscaled,
+        learning_rate=0.03,
+        max_depth=2,
+        min_samples_leaf=1,
+        n_estimators=600,
+        subsample=0.7
+    ).named_steps["model"]
+
+    estimators = [
+        ("gbr", clone(gbr_base)),
+        ("hgb", HistGradientBoostingRegressor(
+            random_state=random_state,
+            learning_rate=0.03,
+            max_depth=3,
+            max_iter=400,
+            min_samples_leaf=20,
+            l2_regularization=0.1
+        ))
+    ]
+
+    stack_pipe = build_stacking_pipeline(preprocessor_unscaled, estimators)
+
+    evaluate(stack_pipe, X_train, Y_train, "Stacking (GBR+HGB)", cv)
 
 
 if __name__ == "__main__":

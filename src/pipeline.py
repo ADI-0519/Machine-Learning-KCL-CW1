@@ -3,7 +3,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler, SplineTransform
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.pipeline import Pipeline
-from sklearn.ensemble import GradientBoostingRegressor, HistGradientBoostingRegressor, ExtraTreesRegressor, AdaBoostRegressor, RandomForestRegressor
+from sklearn.ensemble import GradientBoostingRegressor, HistGradientBoostingRegressor, ExtraTreesRegressor, AdaBoostRegressor, RandomForestRegressor, StackingRegressor
 from sklearn.tree import DecisionTreeRegressor
 from xgboost import XGBRegressor
 from config import categorical_cols, random_state
@@ -126,6 +126,18 @@ def build_randomforest_pipeline(preprocessor, **kwargs):
 
 def build_xgboost_pipeline(preprocessor, **kwargs):
     model = XGBRegressor(random_state=random_state, n_jobs=-1, **kwargs)
+    pipe = Pipeline(
+        steps=[
+            ("preprocess",preprocessor),
+            ("model",model)
+        ]
+    )
+    return pipe
+
+def build_stacking_pipeline(preprocessor, estimators):
+    meta = Ridge(alpha=1.0)
+    model = StackingRegressor(estimators=estimators,final_estimator=meta,passthrough=False,n_jobs=-1)
+
     pipe = Pipeline(
         steps=[
             ("preprocess",preprocessor),
