@@ -7,17 +7,17 @@ from sklearn.inspection import permutation_importance
 
 from config import train_path, random_state
 from pipeline import preprocessing, build_gradientboost_pipeline
+from pathlib import Path
 
 def load_data():
+    """Loads training CSV file."""
     df = pd.read_csv(train_path)
     X = df.drop(columns=["outcome"])
     y = df["outcome"]
     return X,y
 
-def get_feature_names(preprocessor):
-    return preprocessor.get_feature_names_out()
-
 def main():
+    """Computes features importance on a hold out split and saves a bar chart to reports."""
     X,y = load_data()
 
     X_tr, X_va, y_tr, y_va = train_test_split(
@@ -26,11 +26,11 @@ def main():
 
     pre_scaled, pre_unscaled = preprocessing(X_tr)
 
-    pipe = build_gradientboost_pipeline(pre_unscaled, learning_rate=0.03, max_depth=2, min_samples_leaf=1, n_estimators=600,subsample=0.7)
-    pipe.fit(X_tr,y_tr)
+    gbr_pipe = build_gradientboost_pipeline(pre_unscaled, learning_rate=0.03, max_depth=2, min_samples_leaf=1, n_estimators=600,subsample=0.7)
+    gbr_pipe.fit(X_tr,y_tr)
 
     result = permutation_importance(
-        pipe,
+        gbr_pipe,
         X_va,
         y_va,
         n_repeats=10,
@@ -38,19 +38,12 @@ def main():
         scoring="r2",
         n_jobs=-1,
     )
-
-    pre = pipe.named_steps["preprocess"]
-
     # Get names from fitted preprocessor
     feature_names = X_va.columns.to_numpy()
 
     imp_mean = result.importances_mean
     imp_std = result.importances_std
 
-    print("n_raw_features:", len(feature_names))
-    print("n_importances:", len(imp_mean))
-
-    # Safety: if mismatch, fall back to generic names so the analysis still runs
     if len(feature_names) != len(imp_mean):
         feature_names = np.array([f"feature_{i}" for i in range(len(imp_mean))])
 
@@ -67,9 +60,8 @@ def main():
     plt.xlabel("Permutation importance (drop in R²)")
     plt.title("Top 10 Feature Importances (Permutation)")
     plt.tight_layout()
+    Path("reports").mkdir(parents=True,exist_ok=True)
     plt.savefig("reports/feature_importance_top10.png", dpi=200)
-    plt.show(block=False)
-    plt.pause(2)
     plt.close()
 
 if __name__ == "__main__":

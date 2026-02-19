@@ -1,3 +1,5 @@
+# Configuration variables
+
 random_state = 123
 categorical_cols = ['cut', 'color', 'clarity']
 train_path = "data/CW1_train.csv"
